@@ -1,4 +1,16 @@
-"""Configuration constants for cllama."""
+"""Configuration constants for cllama.
+
+This script assumes you are using the strix-halo-testing setup from https://github.com/lhl/strix-halo-testing
+
+It has a update-llama.cpp.sh script that updates the llama.cpp builds.
+
+Depending on which llama.cpp you compile it saves the builds in the following directories:
+- llama.cpp-vulkan/build/bin
+- llama.cpp-hip/build/bin
+- llama.cpp-rocwmma/build/bin
+
+You can change the path to the llama.cpp builds from this config file if you compiled/downloaded them somewhere else.
+"""
 
 import os
 from pathlib import Path
@@ -45,3 +57,9 @@ DEFAULT_BACKEND = "vulkan"
 # Llama.cpp binaries
 LLAMA_SERVER = "llama-server"
 LLAMA_CLI = "llama-cli"
+
+# llama-swap config path (can be overridden via LLAMA_SWAP_CONFIG env var)
+LLAMA_SWAP_CONFIG = Path(os.getenv(
+    "LLAMA_SWAP_CONFIG",
+    Path.home() / "Documents/MyLinuxConfigs/StrixHalo/llama-swap-config.yaml"
+))

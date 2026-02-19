@@ -63,6 +63,14 @@ def download_model(repo_id: str, quant: str | None = None) -> Path:
     """
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
+    # Validate repo contains GGUF files
+    all_files = get_repo_files(repo_id)
+    gguf_files = [f for f in all_files if f.endswith(".gguf")]
+    if not gguf_files:
+        logger.error(f"No .gguf files found in '{repo_id}'.")
+        logger.error("cllama is only for GGUF models.")
+        sys.exit(1)
+
     if quant:
         # Find all files matching the quantization
         matching_files = find_files_by_quant(repo_id, quant)

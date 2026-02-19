@@ -6,6 +6,7 @@ import click
 
 from ..utils.models import parse_model_reference, resolve_model_path
 from ..utils.hf import download_model
+from ..utils.llama_swap import update_llama_swap_config
 
 
 @click.command()
@@ -33,3 +34,5 @@ def pull(model: str, quant: str | None):
     except Exception as e:
         logger.error(f"Failed to download model: {e}")
         sys.exit(1)
+
+    update_llama_swap_config(model_ref.repo_id, model_ref.quant)
