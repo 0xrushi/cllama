@@ -7,6 +7,7 @@ import cllama.utils.hf
 from cllama.utils.hf import (
     get_repo_files,
     find_files_by_quant,
+    download_model,
     get_local_model_path,
     is_model_downloaded,
 )
@@ -140,6 +141,59 @@ class TestFindFilesByQuant:
         result = find_files_by_quant("user/model", "Q4_K_M")
         assert len(result) == 1
         assert all(f.endswith(".gguf") for f in result)
+
+
+class TestDownloadModelGGUFValidation:
+    """Tests for the GGUF-only validation at the top of download_model()."""
+
+    @patch("cllama.utils.hf.get_repo_files")
+    def test_no_gguf_files_exits(self, mock_get_files, temp_models_dir):
+        """Repos with no .gguf files should exit immediately."""
+        mock_get_files.return_value = ["README.md", "config.json", "model.safetensors"]
+        with patch.object(cllama.utils.hf, "MODELS_DIR", temp_models_dir):
+            with pytest.raises(SystemExit) as exc_info:
+                download_model("user/not-a-gguf-repo")
+        assert exc_info.value.code == 1
+
+    @patch("cllama.utils.hf.get_repo_files")
+    def test_no_gguf_files_exits_with_quant(self, mock_get_files, temp_models_dir):
+        """Validation runs even when a quant is specified."""
+        mock_get_files.return_value = ["model.safetensors"]
+        with patch.object(cllama.utils.hf, "MODELS_DIR", temp_models_dir):
+            with pytest.raises(SystemExit) as exc_info:
+                download_model("user/not-a-gguf-repo", quant="Q4_K_M")
+        assert exc_info.value.code == 1
+
+    @patch("cllama.utils.hf.get_repo_files")
+    def test_empty_repo_exits(self, mock_get_files, temp_models_dir):
+        """An empty repo (no files at all) should also exit."""
+        mock_get_files.return_value = []
+        with patch.object(cllama.utils.hf, "MODELS_DIR", temp_models_dir):
+            with pytest.raises(SystemExit):
+                download_model("user/empty-repo")
+
+    @patch("cllama.utils.hf.find_files_by_quant")
+    @patch("cllama.utils.hf.get_repo_files")
+    def test_gguf_repo_passes_validation(self, mock_get_files, mock_find, temp_models_dir):
+        """A repo with .gguf files should pass validation and proceed to download."""
+        mock_get_files.return_value = ["model-Q4_K_M.gguf", "README.md"]
+        mock_find.return_value = []  # quant not found — triggers next exit, but validation passed
+        with patch.object(cllama.utils.hf, "MODELS_DIR", temp_models_dir):
+            with pytest.raises(SystemExit) as exc_info:
+                download_model("user/real-gguf-repo", quant="Q8_0")
+        # Exit is from "no quant match", not from GGUF validation — mock_find was called
+        mock_find.assert_called_once()
+
+    @patch("cllama.utils.hf.subprocess")
+    @patch("cllama.utils.hf.get_repo_files")
+    def test_gguf_repo_no_quant_proceeds(self, mock_get_files, mock_subprocess, temp_models_dir):
+        """Without quant, a valid GGUF repo should reach the subprocess download call."""
+        mock_get_files.return_value = ["model.gguf"]
+        mock_subprocess.run.return_value = Mock(returncode=0)
+        with patch.object(cllama.utils.hf, "MODELS_DIR", temp_models_dir):
+            result = download_model("user/real-gguf-repo")
+        mock_subprocess.run.assert_called_once()
+        assert result == temp_models_dir
 
 
 class TestGetLocalModelPath:
